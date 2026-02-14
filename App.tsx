@@ -25,8 +25,8 @@ const App: React.FC = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session?.user?.email) {
-        setUserName(session.user.email.split('@')[0]);
+      if (session?.user) {
+        fetchProfile(session.user.id, session.user.email);
       }
       setLoading(false);
     });
@@ -35,14 +35,34 @@ const App: React.FC = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session?.user?.email) {
-        setUserName(session.user.email.split('@')[0]);
+      if (session?.user) {
+        fetchProfile(session.user.id, session.user.email);
       }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchProfile = async (userId: string, email: string | undefined) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('display_name, photo_data')
+        .eq('id', userId)
+        .single();
+
+      if (data) {
+        if (data.display_name) setUserName(data.display_name);
+        if (data.photo_data) setUserPhoto(data.photo_data);
+      } else if (email) {
+        // Fallback to email if no profile exists yet
+        setUserName(email.split('@')[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
 
   // Fetch Data
   const fetchData = async () => {
@@ -452,9 +472,25 @@ const App: React.FC = () => {
         }}
         userName={userName}
         userPhoto={userPhoto}
-        onProfileUpdate={(name, photo) => {
+        onProfileUpdate={async (name, photo) => {
           setUserName(name);
           setUserPhoto(photo);
+
+          if (session?.user) {
+            const { error } = await supabase
+              .from('profiles')
+              .upsert({
+                id: session.user.id,
+                display_name: name,
+                photo_data: photo,
+                updated_at: new Date().toISOString()
+              });
+
+            if (error) {
+              console.error('Error saving profile:', error);
+              alert('Erro ao salvar perfil');
+            }
+          }
         }}
         notifications={notifications}
         onDismissNotification={handleDismissNotification}

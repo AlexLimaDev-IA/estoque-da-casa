@@ -1,0 +1,7 @@
+{
+  "name": "Estoque da Casa",
+  "description": "Sistema inteligente de gestão de mantimentos e lista de compras automatizada para sua residência.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

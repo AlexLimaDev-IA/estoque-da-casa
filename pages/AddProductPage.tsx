@@ -95,7 +95,7 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
   const isWeightBased = formData.consumptionType === ConsumptionType.FRACTIONAL && ['kg', 'g'].includes(formData.measurementUnit || '');
 
   return (
-    <div className="max-w-[800px] mx-auto px-4 py-8">
+    <div className="max-w-[800px] mx-auto px-4 py-8 pb-32 md:pb-8">
       <div className="flex flex-col gap-2 mb-6">
         <div className="flex items-center gap-2 text-[#618979] text-sm font-medium">
           <button onClick={onCancel} className="hover:text-primary transition-colors">Estoque</button>
@@ -109,7 +109,7 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
       </div>
 
       <div className="bg-white dark:bg-[#1a2e26] rounded-3xl shadow-2xl shadow-primary/5 border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-6 md:p-10 space-y-12">
+        <form onSubmit={handleSubmit} className="p-4 md:p-10 space-y-12">
           {/* Informações Básicas */}
           <div>
             <h3 className="text-slate-900 dark:text-white text-xs font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] opacity-60">
@@ -185,13 +185,13 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
                 <div className="flex group">
                   <input
                     type="text"
-                    className="flex-1 h-14 rounded-l-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-5 font-black text-lg transition-all"
+                    className="flex-1 min-w-0 h-14 rounded-l-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 md:px-5 font-black text-lg transition-all"
                     placeholder="Ex: 5"
                     value={formData.contentPerUnit}
                     onChange={e => setFormData({ ...formData, contentPerUnit: e.target.value })}
                   />
                   <select
-                    className="w-32 h-14 rounded-r-2xl border-l-0 border-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary font-black text-sm transition-all"
+                    className="w-24 md:w-32 h-14 rounded-r-2xl border-l-0 border-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary font-black text-sm transition-all"
                     value={formData.measurementUnit}
                     onChange={e => setFormData({ ...formData, measurementUnit: e.target.value })}
                   >

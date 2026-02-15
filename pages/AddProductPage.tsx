@@ -13,8 +13,16 @@ const PURCHASE_UNITS = [
   'Barra', 'Kit', 'Fardo', 'Galão'
 ];
 
+interface ProductFormState extends Omit<Product, 'currentQuantity' | 'minQuantity' | 'pricePerUnit' | 'pricePerKg'> {
+  currentQuantity: number | string;
+  minQuantity: number | string;
+  pricePerUnit: number | string;
+  pricePerKg?: number | string;
+}
+
 const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<Partial<Product>>({
+  const [formData, setFormData] = useState<ProductFormState>({
+    id: '',
     name: '',
     category: Category.MERCEARIA,
     unit: 'Pacote',
@@ -25,8 +33,11 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
     pricePerUnit: 0,
     pricePerKg: 0,
     isEssential: false,
+    status: Status.NORMAL,
     consumptionType: ConsumptionType.WHOLE,
-    imageUrl: ''
+    imageUrl: '',
+    expirationDate: '',
+    averageConsumption: 0
   });
 
   useEffect(() => {
@@ -40,7 +51,7 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
     const isFractional =
       formData.consumptionType === ConsumptionType.FRACTIONAL &&
       ['kg', 'g'].includes(formData.measurementUnit || '') &&
-      (formData.pricePerKg || 0) > 0;
+      (Number(formData.pricePerKg) || 0) > 0;
 
     // Se for modo INTEIRO, não faz cálculo automático
     if (formData.consumptionType === ConsumptionType.WHOLE) {
@@ -53,8 +64,8 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
         (formData.contentPerUnit || '0').toString().replace(',', '.')
       );
 
-      const priceKg = formData.pricePerKg || 0;
-      const quantity = Math.max(1, formData.currentQuantity || 1);
+      const priceKg = Number(formData.pricePerKg) || 0;
+      const quantity = Math.max(1, Number(formData.currentQuantity) || 1);
 
       if (!isNaN(weight) && weight > 0) {
         let totalCost = 0;
@@ -87,6 +98,10 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
     onSave({
       ...formData as Product,
       id: formData.id || Math.random().toString(36).substr(2, 9),
+      currentQuantity: Number(formData.currentQuantity) || 0,
+      minQuantity: Number(formData.minQuantity) || 0,
+      pricePerUnit: Number(formData.pricePerUnit) || 0,
+      pricePerKg: Number(formData.pricePerKg) || 0,
       status: formData.status || Status.NORMAL,
       consumptionType: formData.consumptionType || ConsumptionType.WHOLE
     });
@@ -256,7 +271,10 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
                   step="1"
                   className="w-full h-16 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white text-center font-black text-2xl font-mono focus:ring-primary"
                   value={formData.currentQuantity}
-                  onChange={e => setFormData({ ...formData, currentQuantity: Number(e.target.value) })}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData({ ...formData, currentQuantity: val === '' ? '' : Number(val) });
+                  }}
                 />
               </div>
               <div>
@@ -265,7 +283,10 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
                   type="number"
                   className="w-full h-16 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white text-center font-black text-2xl font-mono focus:ring-primary"
                   value={formData.minQuantity}
-                  onChange={e => setFormData({ ...formData, minQuantity: Number(e.target.value) })}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData({ ...formData, minQuantity: val === '' ? '' : Number(val) });
+                  }}
                 />
               </div>
 
@@ -278,8 +299,11 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
                     step="0.01"
                     placeholder="0,00"
                     className="w-full h-16 rounded-2xl border-primary/30 bg-primary/5 dark:bg-primary/10 dark:text-white text-center font-black text-2xl text-primary font-mono focus:ring-primary"
-                    value={formData.pricePerKg || ''}
-                    onChange={e => setFormData({ ...formData, pricePerKg: Number(e.target.value) })}
+                    value={formData.pricePerKg === 0 ? '' : formData.pricePerKg}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, pricePerKg: val === '' ? '' : Number(val) });
+                    }}
                   />
                 </div>
               )}
@@ -293,15 +317,18 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
                 <input
                   type="number"
                   step="0.01"
-                  readOnly={isWeightBased && (formData.pricePerKg || 0) > 0}
-                  className={`w-full h-16 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white text-center font-black text-2xl text-emerald-500 font-mono focus:ring-emerald-500 ${isWeightBased && (formData.pricePerKg || 0) > 0
+                  readOnly={isWeightBased && (Number(formData.pricePerKg) || 0) > 0}
+                  className={`w-full h-16 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white text-center font-black text-2xl text-emerald-500 font-mono focus:ring-emerald-500 ${isWeightBased && (Number(formData.pricePerKg) || 0) > 0
                     ? 'opacity-80 cursor-not-allowed bg-slate-50'
                     : ''
                     }`}
-                  value={formData.pricePerUnit}
-                  onChange={e => setFormData({ ...formData, pricePerUnit: Number(e.target.value) })}
+                  value={formData.pricePerUnit === 0 ? '' : formData.pricePerUnit}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData({ ...formData, pricePerUnit: val === '' ? '' : Number(val) });
+                  }}
                 />
-                {isWeightBased && (formData.pricePerKg || 0) > 0 && (
+                {isWeightBased && (Number(formData.pricePerKg) || 0) > 0 && (
                   <p className="text-[9px] text-center mt-2 text-emerald-600 font-bold uppercase tracking-widest">
                     Calculado Automaticamente
                   </p>

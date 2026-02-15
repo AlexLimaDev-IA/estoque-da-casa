@@ -69,7 +69,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
   }, [availableProducts, searchTerm]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-40">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight uppercase tracking-tight">Lista de Compras</h1>
@@ -239,7 +239,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                 });
                 onConfirmPurchase(allQuantities);
               }}
-              className="w-full flex items-center justify-center gap-3 bg-white text-slate-900 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-white/5 group"
+              className="w-full flex items-center justify-center gap-3 bg-[#11d483] text-white py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-white/5 group"
             >
               <span className="material-symbols-outlined font-black transition-transform group-hover:translate-x-1">
                 check_circle

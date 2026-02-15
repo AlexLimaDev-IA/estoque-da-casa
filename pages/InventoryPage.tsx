@@ -71,7 +71,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-24 md:pb-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-40 md:pb-8">
       <div className="flex flex-col gap-4 mb-8">
         <div className="relative w-full max-w-2xl">
           <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-slate-400">
@@ -101,8 +101,8 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
                 key={cat}
                 onClick={() => setFilter(cat)}
                 className={`shrink-0 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-300 border uppercase tracking-widest ${filter === cat
-                    ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30 scale-105 z-10'
-                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:text-primary active:scale-95'
+                  ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30 scale-105 z-10'
+                  : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:text-primary active:scale-95'
                   }`}
               >
                 {cat}

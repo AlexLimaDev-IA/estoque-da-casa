@@ -86,6 +86,12 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8">
+          {/* Mobile Scroll Hint */}
+          <div className="md:hidden flex items-center justify-end gap-2 mb-2 text-slate-400 animate-pulse px-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest">Arraste para ver opções</span>
+            <span className="material-symbols-outlined text-lg">arrow_forward</span>
+          </div>
+
           <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[600px]">

@@ -380,7 +380,7 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 h-20 rounded-2xl border-2 border-slate-100 dark:border-slate-800 text-slate-400 font-black uppercase tracking-[0.2em] text-xs hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all"
+              className="flex-1 h-20 rounded-2xl bg-orange-600 text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-orange-700 transition-all shadow-xl shadow-orange-600/20"
             >
               Descartar
             </button>

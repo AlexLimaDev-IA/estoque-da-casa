@@ -93,6 +93,19 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
     formData.currentQuantity
   ]);
 
+  // Auto-focus on name field
+  const nameInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Small timeout to ensure render and transition
+    setTimeout(() => {
+      if (nameInputRef.current) {
+        nameInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        nameInputRef.current.focus();
+      }
+    }, 100);
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
@@ -135,6 +148,7 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
               <div className="col-span-1 md:col-span-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Nome Comercial</label>
                 <input
+                  ref={nameInputRef}
                   type="text"
                   required
                   className="w-full h-14 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-5 text-base font-black transition-all"

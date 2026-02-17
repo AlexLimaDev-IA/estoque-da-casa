@@ -380,15 +380,15 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 h-16 rounded-2xl border-2 border-slate-100 dark:border-slate-800 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all"
+              className="flex-1 h-20 rounded-2xl border-2 border-slate-100 dark:border-slate-800 text-slate-400 font-black uppercase tracking-[0.2em] text-xs hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all"
             >
               Descartar
             </button>
             <button
               type="submit"
-              className="flex-[2] h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-primary/30 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-3"
+              className="flex-[2] h-20 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-sm shadow-2xl shadow-primary/30 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-3"
             >
-              <span className="material-symbols-outlined font-black">save</span>
+              <span className="material-symbols-outlined font-black text-2xl">save</span>
               Confirmar Alterações
             </button>
           </div>

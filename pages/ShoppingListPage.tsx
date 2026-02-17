@@ -14,7 +14,7 @@ interface ShoppingListPageProps {
 const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyAddedIds, onRemoveFromList, onManualAdd, onQuantityChange, onConfirmPurchase }) => {
 
   const [budget, setBudget] = useState<number>(150);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [quantities, setQuantities] = useState<Record<string, number | string>>({});
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -44,7 +44,8 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
 
   const total = useMemo(() => {
     return shoppingItems.reduce((acc, item) => {
-      const qty = quantities[item.id] ?? item.neededQuantity;
+      const qVal = quantities[item.id] ?? item.neededQuantity;
+      const qty = typeof qVal === 'string' ? (qVal === '' ? 0 : Number(qVal)) : qVal;
       return acc + (item.pricePerUnit * qty);
     }, 0);
   }, [shoppingItems, quantities]);
@@ -134,11 +135,12 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
-                            min="1"
+                            min="0"
                             value={quantities[item.id] ?? item.neededQuantity}
                             className="w-16 h-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 dark:text-white text-center text-xs font-black focus:ring-primary focus:border-primary"
                             onChange={(e) => {
-                              const newQty = Number(e.target.value);
+                              const val = e.target.value;
+                              const newQty = val === '' ? '' : Number(val);
                               setQuantities(prev => ({
                                 ...prev,
                                 [item.id]: newQty
@@ -151,7 +153,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                         </div>
                       </td>
                       <td className="px-6 py-5 text-sm font-black text-slate-900 dark:text-white text-right font-mono">
-                        R$ {(item.pricePerUnit * (quantities[item.id] ?? item.neededQuantity)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(item.pricePerUnit * (Number(quantities[item.id] ?? item.neededQuantity) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 
                       </td>
                       <td className="px-6 py-5 text-center">
@@ -241,7 +243,8 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
               onClick={() => {
                 const allQuantities: Record<string, number> = {};
                 shoppingItems.forEach(item => {
-                  allQuantities[item.id] = quantities[item.id] ?? item.neededQuantity;
+                  const val = quantities[item.id] ?? item.neededQuantity;
+                  allQuantities[item.id] = Number(val) || 0;
                 });
                 onConfirmPurchase(allQuantities);
               }}

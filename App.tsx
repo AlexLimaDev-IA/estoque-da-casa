@@ -504,7 +504,10 @@ const App: React.FC = () => {
             products={products}
             onConsume={handleConsume}
             onEdit={handleEditProduct}
-            onAddClick={() => setCurrentView('add_product')}
+            onAddClick={() => {
+              setEditingProduct(null);
+              setCurrentView('add_product');
+            }}
           />
         )}
         {currentView === 'shopping_list' && (

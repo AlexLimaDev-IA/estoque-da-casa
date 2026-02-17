@@ -13,7 +13,7 @@ interface ShoppingListPageProps {
 
 const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyAddedIds, onRemoveFromList, onManualAdd, onQuantityChange, onConfirmPurchase }) => {
 
-  const [budget, setBudget] = useState<number>(150);
+  const [budget, setBudget] = useState<number | string>(150);
   const [quantities, setQuantities] = useState<Record<string, number | string>>({});
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,9 +50,9 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
     }, 0);
   }, [shoppingItems, quantities]);
 
-  const isOverBudget = total > budget;
-  const overBudgetAmount = Math.max(0, total - budget);
-  const budgetPercent = Math.min(100, (total / budget) * 100);
+  const isOverBudget = total > (Number(budget) || 0);
+  const overBudgetAmount = Math.max(0, total - (Number(budget) || 0));
+  const budgetPercent = Math.min(100, (total / (Number(budget) || 1)) * 100);
 
   // Products available to add (not already on the list)
   const availableProducts = useMemo(() => {
@@ -197,7 +197,10 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                 type="number"
                 className="w-full bg-transparent border-none p-0 focus:ring-0 text-xl font-black text-slate-900 dark:text-white font-mono"
                 value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setBudget(val === '' ? '' : Number(val));
+                }}
               />
             </div>
           </div>

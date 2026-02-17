@@ -305,7 +305,7 @@ const App: React.FC = () => {
       status: newProduct.status,
       consumption_type: newProduct.consumptionType,
       image_url: newProduct.imageUrl,
-      expiration_date: newProduct.expirationDate,
+      expiration_date: newProduct.expirationDate || null,
       average_consumption: newProduct.averageConsumption
     };
 

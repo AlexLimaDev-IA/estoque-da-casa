@@ -317,8 +317,8 @@ const App: React.FC = () => {
         .eq('id', newProduct.id);
 
       if (error) {
-        console.error('Error updating product', error);
-        alert('Erro ao atualizar produto');
+        console.error('Error updating product:', error);
+        alert(`Erro ao atualizar produto: ${error.message}`);
       } else {
         fetchData();
         setEditingProduct(null);
@@ -328,8 +328,8 @@ const App: React.FC = () => {
       // Insert
       const { error } = await supabase.from('products').insert(productToSave);
       if (error) {
-        console.error('Error creating product', error);
-        alert('Erro ao criar produto');
+        console.error('Error creating product:', error);
+        alert(`Erro ao criar produto: ${error.message}`);
       } else {
         fetchData();
         setEditingProduct(null);

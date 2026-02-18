@@ -322,7 +322,13 @@ const App: React.FC = () => {
       } else {
         fetchData();
         setEditingProduct(null);
-        setCurrentView('inventory');
+        // Go back implicitly or explicit nav?
+        // If we mimic "Save & Close", going back is natural if we pushed state.
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          setCurrentView('inventory'); // Direct set if no history, but ideally use handleNavigation
+        }
       }
     } else {
       // Insert
@@ -333,7 +339,11 @@ const App: React.FC = () => {
       } else {
         fetchData();
         setEditingProduct(null);
-        setCurrentView('inventory');
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          setCurrentView('inventory');
+        }
       }
     }
   };
@@ -398,9 +408,6 @@ const App: React.FC = () => {
     }
 
     // 3. Clear Shopping List (Manual adds)
-    // We assume purchased means we accept the suggested list or manual adds.
-    // If we had a 'shopping_list' table sync, we would delete/update items here.
-    // For manual adds stored in Supabase:
     if (shoppingListIds.size > 0) {
       // Convert Set to array
       const ids = Array.from(shoppingListIds);
@@ -409,14 +416,24 @@ const App: React.FC = () => {
     }
 
     setShoppingListIds(new Set());
+
+    // Navigate to inventory
+    // setCurrentView('inventory'); 
+    // We should probably just set current view + push state, or replace state to avoid "Back to shopping list" loop?
+    // Let's just use setCurrentView + push (handleNavigation logic manually or reuse).
     setCurrentView('inventory');
+    window.history.pushState({ view: 'inventory' }, '');
+
     fetchData(); // Refresh all data
   };
 
 
   const handleEditProduct = (p: Product) => {
+    // This function is now largely unused by the main render which uses inline lambda, 
+    // but kept for reference or direct calls if any.
     setEditingProduct(p);
     setCurrentView('add_product');
+    window.history.pushState({ view: 'add_product' }, '');
   };
 
   const handleManualAddToList = async (id: string) => {
@@ -454,6 +471,36 @@ const App: React.FC = () => {
   };
 
 
+  // Handle Browser History (Back Button)
+  useEffect(() => {
+    // Initial state
+    if (!window.history.state) {
+      window.history.replaceState({ view: 'inventory' }, '');
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.view) {
+        setCurrentView(event.state.view);
+        // Clear editing state if leaving add_product
+        if (event.state.view !== 'add_product') {
+          setEditingProduct(null);
+        }
+      } else {
+        // Fallback to inventory or let browser handle closure if stack is empty
+        // Usually we want to enforce inventory as base
+        setCurrentView('inventory');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleNavigation = (view: ViewType) => {
+    setCurrentView(view);
+    window.history.pushState({ view }, '');
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-400">Carregando...</div>;
   }
@@ -467,7 +514,7 @@ const App: React.FC = () => {
       <Navbar
         currentView={currentView}
         onViewChange={(view) => {
-          setCurrentView(view);
+          handleNavigation(view);
           if (view !== 'add_product') setEditingProduct(null);
         }}
         userName={userName}
@@ -503,10 +550,13 @@ const App: React.FC = () => {
           <InventoryPage
             products={products}
             onConsume={handleConsume}
-            onEdit={handleEditProduct}
+            onEdit={(p) => {
+              setEditingProduct(p);
+              handleNavigation('add_product');
+            }}
             onAddClick={() => {
               setEditingProduct(null);
-              setCurrentView('add_product');
+              handleNavigation('add_product');
             }}
           />
         )}
@@ -517,16 +567,30 @@ const App: React.FC = () => {
             onRemoveFromList={handleRemoveFromList}
             onManualAdd={handleManualAddToList}
             onQuantityChange={(id, qty) => { }}
-            onConfirmPurchase={handleConfirmPurchase}
+            onConfirmPurchase={(qty) => {
+              handleConfirmPurchase(qty);
+              // Clear history stack if needed? For now just go to inventory.
+              // We'll replace state to avoid back button going back to confirm?
+              // Or just push. Let's push for consistency with "Back" button behavior.
+              // Actually, Confirm Purchase usually redirects to Inventory.
+              // We'll let handleConfirmPurchase do its thing but update it to use handleNavigation or replace.
+            }}
           />
         )}
         {currentView === 'add_product' && (
           <AddProductPage
             product={editingProduct}
-            onSave={handleSaveProduct}
+            onSave={(p) => {
+              handleSaveProduct(p);
+              // handleSaveProduct calls simple setCurrentView. We might want to fix that.
+            }}
             onCancel={() => {
-              setEditingProduct(null);
-              setCurrentView('inventory');
+              // Attempt to go back in history if possible, else navigate to inventory
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                handleNavigation('inventory');
+              }
             }}
           />
         )}
@@ -536,15 +600,15 @@ const App: React.FC = () => {
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-background-dark border-t border-primary/10 flex justify-around items-center py-3 z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
-        <button onClick={() => setCurrentView('inventory')} className={`flex flex-col items-center gap-1 ${currentView === 'inventory' ? 'text-primary' : 'text-gray-400'}`}>
+        <button onClick={() => handleNavigation('inventory')} className={`flex flex-col items-center gap-1 ${currentView === 'inventory' ? 'text-primary' : 'text-gray-400'}`}>
           <span className="material-symbols-outlined">inventory</span>
           <span className="text-[10px] font-bold">Estoque</span>
         </button>
-        <button onClick={() => setCurrentView('shopping_list')} className={`flex flex-col items-center gap-1 ${currentView === 'shopping_list' ? 'text-primary' : 'text-gray-400'}`}>
+        <button onClick={() => handleNavigation('shopping_list')} className={`flex flex-col items-center gap-1 ${currentView === 'shopping_list' ? 'text-primary' : 'text-gray-400'}`}>
           <span className="material-symbols-outlined">shopping_cart</span>
           <span className="text-[10px] font-bold">Lista</span>
         </button>
-        <button onClick={() => setCurrentView('reports')} className={`flex flex-col items-center gap-1 ${currentView === 'reports' ? 'text-primary' : 'text-gray-400'}`}>
+        <button onClick={() => handleNavigation('reports')} className={`flex flex-col items-center gap-1 ${currentView === 'reports' ? 'text-primary' : 'text-gray-400'}`}>
           <span className="material-symbols-outlined">history</span>
           <span className="text-[10px] font-bold">Relatórios</span>
         </button>

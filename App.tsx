@@ -465,9 +465,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRemoveFromList = (id: string) => {
-    // Just an alias for manual add (toggle)
-    handleManualAddToList(id);
+  const handleRemoveFromList = async (id: string) => {
+    if (shoppingListIds.has(id)) {
+      setShoppingListIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        await supabase.from('shopping_list').delete().match({ product_id: id, user_id: user.id });
+      }
+    }
   };
 
 

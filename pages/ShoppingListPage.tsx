@@ -18,11 +18,12 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedForAdd, setSelectedForAdd] = useState<Record<string, number | string>>({});
+  const [ignoredItemIds, setIgnoredItemIds] = useState<Set<string>>(new Set());
 
   const shoppingItems = useMemo(() => {
     // Auto-detected items (low stock)
     const autoItems = products
-      .filter(p => p.currentQuantity < p.minQuantity)
+      .filter(p => p.currentQuantity < p.minQuantity && !ignoredItemIds.has(p.id))
       .map(p => {
         let neededQuantity = 1;
         if (p.consumptionType === 'WHOLE') {
@@ -36,7 +37,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
     // Manually added items
     const autoIds = new Set(autoItems.map(i => i.id));
     const manualItems = products
-      .filter(p => manuallyAddedIds.has(p.id) && !autoIds.has(p.id))
+      .filter(p => manuallyAddedIds.has(p.id) && !autoIds.has(p.id) && !ignoredItemIds.has(p.id))
       .map(p => ({ ...p, neededQuantity: 1, isManual: true }));
 
     return [...autoItems, ...manualItems];
@@ -158,7 +159,10 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
 
                       </td>
                       <td className="px-6 py-5 text-center">
-                        <button onClick={() => onRemoveFromList(item.id)} className="size-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-500/5 transition-all">
+                        <button onClick={() => {
+                          onRemoveFromList(item.id);
+                          setIgnoredItemIds(prev => new Set(prev).add(item.id));
+                        }} className="size-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-500/5 transition-all">
                           <span className="material-symbols-outlined text-[18px]">delete</span>
                         </button>
                       </td>
@@ -166,8 +170,18 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                   ))}
                   {shoppingItems.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-20 text-center text-slate-300 font-bold uppercase tracking-widest text-xs">
-                        Suprimentos em dia. Nada pendente.
+                      <td colSpan={5} className="px-6 py-20 text-center">
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="material-symbols-outlined text-5xl text-slate-200 dark:text-slate-700 mb-4 font-light">shopping_cart</span>
+                          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-6">Lista Vazia. Nada pendente.</p>
+                          <button
+                            onClick={() => { setShowModal(true); setSearchTerm(''); }}
+                            className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
+                          >
+                            <span className="material-symbols-outlined text-lg">add</span>
+                            Adicionar Produto
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )}

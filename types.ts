@@ -81,6 +81,7 @@ export interface ProductPurchaseRecord {
   createdAt?: string;
   weightBought?: number;
   unitsReceived?: number;
+  pricePerKg?: number;
 }
 
 export type ReportPeriod = '7d' | '15d' | 'month' | 'year';

@@ -153,7 +153,8 @@ const App: React.FC = () => {
           packagingSize: h.packaging_size ? Number(h.packaging_size) : undefined,
           createdAt: h.created_at,
           weightBought: h.weight_bought ? Number(h.weight_bought) : undefined,
-          unitsReceived: h.units_received ? Number(h.units_received) : undefined
+          unitsReceived: h.units_received ? Number(h.units_received) : undefined,
+          pricePerKg: h.price_per_kg ? Number(h.price_per_kg) : undefined
         }));
         setPurchaseHistoryItems(mappedHistoryItems);
       }
@@ -374,7 +375,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRegisterPurchase = async (productId: string, purchaseData: { quantity: number; unitPrice: number; packagingSize?: number; purchaseDate: string; weightBought?: number; unitsReceived?: number }) => {
+  const handleRegisterPurchase = async (productId: string, purchaseData: { quantity: number; unitPrice: number; packagingSize?: number; purchaseDate: string; weightBought?: number; unitsReceived?: number; pricePerKg?: number }) => {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
 
@@ -384,12 +385,13 @@ const App: React.FC = () => {
     // 1. Insert into purchase_history_items
     const { error: historyError } = await supabase.from('purchase_history_items').insert({
       product_id: productId,
-      purchase_date: `${purchaseData.purchaseDate}T00:00:00Z`, // basic start of day or ISO string
+      purchase_date: `${purchaseData.purchaseDate}T00:00:00Z`,
       quantity: purchaseData.quantity,
       unit_price: purchaseData.unitPrice,
       packaging_size: purchaseData.packagingSize || null,
       weight_bought: purchaseData.weightBought || null,
-      units_received: purchaseData.unitsReceived || null
+      units_received: purchaseData.unitsReceived || null,
+      price_per_kg: purchaseData.pricePerKg || null
     });
 
     if (historyError) {
@@ -404,7 +406,7 @@ const App: React.FC = () => {
 
     // If it's a kg purchase, calculate new price_per_kg
     if (product.purchaseUnit === 'kg' && purchaseData.weightBought && purchaseData.weightBought > 0) {
-      newPriceKg = (purchaseData.unitPrice * purchaseData.quantity) / purchaseData.weightBought;
+      newPriceKg = purchaseData.pricePerKg || ((purchaseData.unitPrice * purchaseData.quantity) / purchaseData.weightBought);
     } else if (product.measurementUnit === 'kg' && purchaseData.packagingSize && purchaseData.packagingSize > 0) {
       newPriceKg = purchaseData.unitPrice / purchaseData.packagingSize;
     } else if (product.measurementUnit === 'g' && purchaseData.packagingSize && purchaseData.packagingSize > 0) {

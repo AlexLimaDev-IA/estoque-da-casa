@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, ConsumptionType } from '../types';
 
 interface PurchaseProductModalProps {
@@ -12,6 +12,7 @@ interface PurchaseProductModalProps {
         purchaseDate: string;
         weightBought?: number;
         unitsReceived?: number;
+        pricePerKg?: number;
     }) => void;
 }
 
@@ -26,25 +27,33 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
     const [pricePerKgPaid, setPricePerKgPaid] = useState<string>('');
     const [unitsReceived, setUnitsReceived] = useState<string>('');
 
-    useEffect(() => {
-        if (isOpen) {
-            setQuantity('1');
-            setUnitPrice(product.pricePerUnit.toString());
-            setPackagingSize(product.contentPerUnit || '');
-            setPurchaseDate(new Date().toISOString().split('T')[0]);
-        }
-    }, [isOpen, product]);
-
     const isPurchaseByKg = product.purchaseUnit === 'kg';
     const isWeightBased = product.consumptionType === ConsumptionType.FRACTIONAL && ['kg', 'g'].includes(product.measurementUnit);
 
     useEffect(() => {
-        if (isOpen && isPurchaseByKg) {
-            setPricePerKgPaid(product.pricePerKg ? product.pricePerKg.toString() : '');
-            setUnitsReceived(quantity || '1');
-            setWeightBought(packagingSize || '');
+        if (isOpen) {
+            setPurchaseDate(new Date().toISOString().split('T')[0]);
+            if (isPurchaseByKg) {
+                setPricePerKgPaid(product.pricePerKg ? product.pricePerKg.toString() : '');
+                setWeightBought('');
+                setUnitsReceived('1');
+            } else {
+                setQuantity('1');
+                setUnitPrice(product.pricePerUnit.toString());
+                setPackagingSize(product.contentPerUnit || '');
+            }
         }
-    }, [isOpen, isPurchaseByKg, product.pricePerKg, quantity, packagingSize]);
+    }, [isOpen, product, isPurchaseByKg]);
+
+    // Cálculo em tempo real para produtos vendidos por KG
+    const kgCalculation = useMemo(() => {
+        const weight = Number(weightBought?.replace(',', '.')) || 0;
+        const priceKg = Number(pricePerKgPaid) || 0;
+        const units = Number(unitsReceived) || 0;
+        const totalPaid = weight * priceKg;
+        const unitPriceCalc = units > 0 ? totalPaid / units : 0;
+        return { weight, priceKg, units, totalPaid, unitPriceCalc };
+    }, [weightBought, pricePerKgPaid, unitsReceived]);
 
     if (!isOpen) return null;
 
@@ -52,20 +61,14 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
         e.preventDefault();
 
         if (isPurchaseByKg) {
-            const weight = Number(weightBought?.replace(',', '.')) || 0;
-            const priceKg = Number(pricePerKgPaid) || 0;
-            const units = Number(unitsReceived) || 1;
-
-            const totalPaid = weight * priceKg;
-            const unitPriceCalculated = totalPaid / units;
-
             onConfirm({
-                quantity: units,
-                unitPrice: Number(unitPriceCalculated.toFixed(2)),
-                packagingSize: undefined, // Ignorado ao usar weightBought pois a semântica mudou
+                quantity: kgCalculation.units || 1,
+                unitPrice: Number(kgCalculation.unitPriceCalc.toFixed(2)),
+                packagingSize: undefined,
                 purchaseDate,
-                weightBought: weight,
-                unitsReceived: units
+                weightBought: kgCalculation.weight,
+                unitsReceived: kgCalculation.units || 1,
+                pricePerKg: kgCalculation.priceKg
             });
         } else {
             onConfirm({
@@ -170,6 +173,30 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
                                     />
                                 </div>
                             </div>
+
+                            {/* Card de resumo calculado em tempo real */}
+                            {kgCalculation.weight > 0 && kgCalculation.priceKg > 0 && kgCalculation.units > 0 && (
+                                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 space-y-2">
+                                    <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-sm">calculate</span>
+                                        Cálculo Automático
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-white/70 dark:bg-slate-900/50 rounded-lg p-2.5 text-center">
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total Pago</p>
+                                            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                                                R$ {kgCalculation.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+                                        <div className="bg-white/70 dark:bg-slate-900/50 rounded-lg p-2.5 text-center">
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Preço Unitário</p>
+                                            <p className="text-lg font-black text-primary font-mono">
+                                                R$ {kgCalculation.unitPriceCalc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <>
@@ -231,7 +258,6 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
                                 )}
                                 {!isWeightBased && (
                                     <div>
-                                        {/* Espaço vazio se não for peso, ou outro dado útil */}
                                         <label className="block text-[10px] items-center text-slate-400 uppercase tracking-widest mb-2 opacity-50">&nbsp;</label>
                                         <div className="w-full h-12 rounded-xl bg-slate-50 dark:bg-slate-800/20 border border-slate-100 dark:border-slate-800/50 flex items-center justify-center text-slate-400 text-[10px] uppercase font-bold tracking-widest">
                                             Não aplicável
@@ -271,7 +297,7 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
                     </div>
                 </form>
             </div>
-        </div>
+        </div >
     );
 };
 

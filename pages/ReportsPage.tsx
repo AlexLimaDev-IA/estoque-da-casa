@@ -118,10 +118,15 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory, pu
         // Because unitPrice in the DB for a KG purchase now stores the calculated price per unity, not per KG.
         // We need the true price/kg to compare properly for Hortifrúti and Carnes.
         const getComparePrice = (record: any) => {
-          if (productInfo.purchaseUnit === 'kg' && record.weightBought && record.weightBought > 0) {
-            // The total paid was unitPrice (per item) * quantity (items).
-            // So we reconstruct the total price and divide by the weight to get the real price/kg for comparison.
-            return (record.unitPrice * record.quantity) / record.weightBought;
+          if (productInfo.purchaseUnit === 'kg') {
+            // Use pricePerKg directly from the record if available
+            if (record.pricePerKg && record.pricePerKg > 0) {
+              return record.pricePerKg;
+            }
+            // Fallback: reconstruct from unitPrice * quantity / weightBought
+            if (record.weightBought && record.weightBought > 0) {
+              return (record.unitPrice * record.quantity) / record.weightBought;
+            }
           }
           return record.unitPrice;
         };
@@ -415,9 +420,20 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory, pu
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr>
-                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Data</th>
-                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Quantidade</th>
-                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preço Pago</th>
+                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">Data</th>
+                          {group.productInfo.purchaseUnit === 'kg' ? (
+                            <>
+                              <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Peso</th>
+                              <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">R$/Kg</th>
+                              <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Unid.</th>
+                              <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">P. Unit.</th>
+                            </>
+                          ) : (
+                            <>
+                              <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantidade</th>
+                              <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preço Pago</th>
+                            </>
+                          )}
                           <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Variação</th>
                         </tr>
                       </thead>
@@ -431,22 +447,31 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory, pu
                           return (
                             <tr key={record.id} className="group/row">
                               <td className="py-2.5 text-xs font-bold text-slate-500 font-mono">{formattedDate}</td>
-                              <td className="py-2.5 text-xs text-slate-600 dark:text-slate-400 font-medium whitespace-nowrap">
-                                {record.quantity} {group.productInfo.unit}
-                                {record.isKg && record.weightBought > 0 && (
-                                  <span className="ml-1 text-[10px] text-slate-400">({record.weightBought}kg)</span>
-                                )}
-                              </td>
-                              <td className="py-2.5 text-xs font-black text-slate-900 dark:text-white font-mono">
-                                <div className="flex flex-col">
-                                  <span>R$ {record.priceForDisplay.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {record.isKg ? '/kg' : ''}</span>
-                                  {record.isKg && (
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                                      Total: R$ {(record.unitPrice * record.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
+                              {record.isKg ? (
+                                <>
+                                  <td className="py-2.5 text-xs text-slate-600 dark:text-slate-400 font-medium font-mono">
+                                    {record.weightBought ? `${record.weightBought}kg` : '-'}
+                                  </td>
+                                  <td className="py-2.5 text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                                    R$ {record.priceForDisplay.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="py-2.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                                    {record.unitsReceived || record.quantity} un
+                                  </td>
+                                  <td className="py-2.5 text-xs font-black text-primary font-mono">
+                                    R$ {record.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="py-2.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                                    {record.quantity} {group.productInfo.unit}
+                                  </td>
+                                  <td className="py-2.5 text-xs font-black text-slate-900 dark:text-white font-mono">
+                                    R$ {record.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </td>
+                                </>
+                              )}
                               <td className="py-2.5 text-right w-24">
                                 {record.changePct === 0 ? (
                                   <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded inline-flex items-center gap-1">

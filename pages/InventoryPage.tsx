@@ -51,6 +51,22 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
     const matchesFilter = filter === 'Todos' || p.category === filter;
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     return matchesFilter && matchesSearch;
+  }).sort((a, b) => {
+    if (filter === 'Todos') {
+      const statusOrder = {
+        [Status.CRITICAL]: 0,
+        [Status.WARNING]: 1,
+        [Status.NORMAL]: 2,
+      };
+
+      const statusA = statusOrder[a.status] ?? 3;
+      const statusB = statusOrder[b.status] ?? 3;
+
+      if (statusA !== statusB) {
+        return statusA - statusB;
+      }
+    }
+    return a.name.localeCompare(b.name);
   });
 
   const handleStartConsume = (p: Product) => {

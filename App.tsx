@@ -429,7 +429,11 @@ const App: React.FC = () => {
     fetchData(); // Refresh to get the latest state and clean everything
   };
 
-  const handleConfirmPurchase = async (purchasedQuantities: Record<string, number>) => {
+  const handleConfirmPurchase = async (
+    purchasedQuantities: Record<string, number>,
+    purchaseDate: string,
+    realPrices: Record<string, { unitPrice: number; pricePerKg?: number }>
+  ) => {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
 
@@ -444,8 +448,8 @@ const App: React.FC = () => {
           productName: product.name,
           category: product.category,
           quantity,
-          unitPrice: product.pricePerUnit,
-          total: product.pricePerUnit * quantity
+          unitPrice: realPrices[productId]?.unitPrice ?? product.pricePerUnit,
+          total: (realPrices[productId]?.unitPrice ?? product.pricePerUnit) * quantity
         };
       })
       .filter(Boolean) as any[];
@@ -457,7 +461,7 @@ const App: React.FC = () => {
     // 1. Save Purchase History
     const { error: histError } = await supabase.from('purchase_history').insert({
       user_id: user.id,
-      date: new Date().toISOString(),
+      date: `${purchaseDate}T00:00:00Z`,
       total_amount: totalAmount,
       items: purchaseItems
     });
@@ -473,12 +477,12 @@ const App: React.FC = () => {
     for (const item of purchaseItems) {
       const product = products.find(p => p.id === item.productId);
       if (product) {
-        const todayStr = new Date().toISOString();
+        const todayStr = `${purchaseDate}T00:00:00Z`;
 
         // Create price history entry
         await supabase.from('historical_prices').insert({
           product_id: product.id,
-          price: product.pricePerUnit,
+          price: realPrices[product.id]?.unitPrice ?? product.pricePerUnit,
           date: todayStr.split('T')[0]
         });
 
@@ -487,8 +491,9 @@ const App: React.FC = () => {
           product_id: product.id,
           purchase_date: todayStr,
           quantity: item.quantity,
-          unit_price: product.pricePerUnit,
-          packaging_size: null
+          unit_price: realPrices[product.id]?.unitPrice ?? product.pricePerUnit,
+          packaging_size: null,
+          price_per_kg: realPrices[product.id]?.pricePerKg ?? null
         });
 
         // Update quantity
@@ -669,8 +674,8 @@ const App: React.FC = () => {
             onRemoveFromList={handleRemoveFromList}
             onManualAdd={handleManualAddToList}
             onQuantityChange={(id, qty) => { }}
-            onConfirmPurchase={(qty) => {
-              handleConfirmPurchase(qty);
+            onConfirmPurchase={(qty, purchaseDate, realPrices) => {
+              handleConfirmPurchase(qty, purchaseDate, realPrices);
               // Clear history stack if needed? For now just go to inventory.
               // We'll replace state to avoid back button going back to confirm?
               // Or just push. Let's push for consistency with "Back" button behavior.

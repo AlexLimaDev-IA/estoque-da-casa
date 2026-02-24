@@ -17,6 +17,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
   const [quantities, setQuantities] = useState<Record<string, number | string>>({});
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedForAdd, setSelectedForAdd] = useState<Record<string, number | string>>({});
 
   const shoppingItems = useMemo(() => {
     // Auto-detected items (low stock)
@@ -280,7 +281,10 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1">Selecione um item do estoque</p>
               </div>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setSelectedForAdd({});
+                }}
                 className="size-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
               >
                 <span className="material-symbols-outlined">close</span>
@@ -316,6 +320,8 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                   {filteredAvailable.map(product => {
                     const isOutOfStock = product.currentQuantity <= 0;
                     const isLowStock = product.currentQuantity > 0 && product.currentQuantity < product.minQuantity;
+                    const isSelected = product.id in selectedForAdd;
+                    const qtyValue = selectedForAdd[product.id] ?? 1;
 
                     let statusText = 'Em estoque';
                     let statusColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
@@ -328,45 +334,108 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                     }
 
                     return (
-                      <button
+                      <div
                         key={product.id}
-                        onClick={() => {
-                          onManualAdd(product.id);
-                          setShowModal(false);
-                        }}
-                        className="w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group text-left"
+                        className={`w-full flex items-center justify-between gap-3 md:gap-4 p-3 md:p-4 rounded-2xl transition-all ${isSelected ? 'bg-primary/5 dark:bg-primary/10 border border-primary/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'}`}
                       >
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.name} className="size-10 md:size-11 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0" />
-                        ) : (
-                          <div className="size-10 md:size-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600 shrink-0">
-                            <span className="material-symbols-outlined text-xl">inventory_2</span>
+                        <button
+                          onClick={() => {
+                            setSelectedForAdd(prev => {
+                              const newVal = { ...prev };
+                              if (product.id in newVal) {
+                                delete newVal[product.id];
+                              } else {
+                                newVal[product.id] = 1;
+                              }
+                              return newVal;
+                            });
+                          }}
+                          className="flex items-center gap-3 md:gap-4 group text-left flex-1 min-w-0"
+                        >
+                          <div className={`size-6 rounded-md border-2 shrink-0 flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary' : 'bg-transparent border-slate-300 dark:border-slate-600'}`}>
+                            {isSelected && <span className="material-symbols-outlined text-[16px] text-white font-black">check</span>}
+                          </div>
+
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt={product.name} className="size-10 md:size-11 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0" />
+                          ) : (
+                            <div className="size-10 md:size-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600 shrink-0">
+                              <span className="material-symbols-outlined text-xl">inventory_2</span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">{product.name}</p>
+                              <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest border shrink-0 ${statusColor}`}>
+                                {statusText}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-black uppercase tracking-widest shrink-0">{product.category}</span>
+                              <span className="text-[10px] text-slate-400 font-mono font-bold shrink-0 hidden md:inline">R$ {product.pricePerUnit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="text-[10px] text-slate-500 font-mono font-bold shrink-0 bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded-md">
+                                <span className="text-slate-900 dark:text-white">{product.currentQuantity}</span> <span className="text-[8px] uppercase tracking-widest">{product.unit}</span> no estq.
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+
+                        {isSelected && (
+                          <div className="flex items-center gap-2 shrink-0 animate-in fade-in slide-in-from-right-4">
+                            <input
+                              type="number"
+                              min="0"
+                              value={qtyValue}
+                              className="w-16 h-10 rounded-xl border border-primary/30 bg-white dark:bg-slate-900 dark:text-white text-center text-sm font-black focus:ring-primary focus:border-primary shadow-sm shadow-primary/10"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const newQty = val === '' ? '' : Number(val);
+                                setSelectedForAdd(prev => ({
+                                  ...prev,
+                                  [product.id]: newQty
+                                }));
+                              }}
+                            />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase hidden sm:block">
+                              {product.unit}
+                            </span>
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">{product.name}</p>
-                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest border shrink-0 ${statusColor}`}>
-                              {statusText}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-black uppercase tracking-widest shrink-0">{product.category}</span>
-                            <span className="text-[10px] text-slate-400 font-mono font-bold shrink-0 hidden md:inline">R$ {product.pricePerUnit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                            <span className="text-[10px] text-slate-500 font-mono font-bold sm:ml-auto shrink-0 bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded-md">
-                              <span className="text-slate-900 dark:text-white">{product.currentQuantity}</span> <span className="text-[8px] uppercase tracking-widest">{product.unit}</span> em estoque
-                            </span>
-                          </div>
-                        </div>
-                        <div className="size-8 md:size-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all shrink-0 ml-1">
-                          <span className="material-symbols-outlined text-lg font-black">add</span>
-                        </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
               )}
             </div>
+
+            {/* Footer with Selected Actions */}
+            {Object.keys(selectedForAdd).length > 0 && (
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 animate-in slide-in-from-bottom-2">
+                <button
+                  onClick={() => {
+                    Object.entries(selectedForAdd).forEach(([id, qty]) => {
+                      onManualAdd(id);
+                      // Se a quantidade definida foi válida/maior que 0, setamos no pai
+                      if (qty !== '' && Number(qty) >= 0) {
+                        // Só setamos a quantidade real, se onQuantityChange permitir fora do componente List, ou
+                        // poderiamos repassar um callback batch, mas por agora chamamos em loop
+                        // e armazenamos a qtde internamente via setQuantities
+                        setQuantities(prev => ({
+                          ...prev,
+                          [id]: Number(qty)
+                        }));
+                      }
+                    });
+                    setShowModal(false);
+                    setSelectedForAdd({});
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-primary text-white py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                  Adicionar {Object.keys(selectedForAdd).length} iten(s)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

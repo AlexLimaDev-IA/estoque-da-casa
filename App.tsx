@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import AuthPage from './pages/AuthPage';
-import { ViewType, Product, Category, Status, ConsumptionType, PurchaseRecord, AppNotification } from './types';
+import { ViewType, Product, Category, Status, ConsumptionType, PurchaseRecord, AppNotification, ProductPurchaseRecord } from './types';
 import Navbar from './components/Navbar';
 import InventoryPage from './pages/InventoryPage';
 import ShoppingListPage from './pages/ShoppingListPage';
@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [userName, setUserName] = useState<string>('');
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseRecord[]>([]);
+  const [purchaseHistoryItems, setPurchaseHistoryItems] = useState<ProductPurchaseRecord[]>([]);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -97,7 +98,8 @@ const App: React.FC = () => {
         averageConsumption: Number(p.average_consumption || 0),
         // Price history would ideally be a separate fetch or join, but for now we might leave empty or fetch if needed
         // For simplicity in this step, we'll initialize empty and maybe fetch on demand or in a refined query
-        priceHistory: []
+        priceHistory: [],
+        purchaseUnit: p.purchase_unit || 'unidade'
       }));
 
       // Calculate status locally to be sure
@@ -132,6 +134,29 @@ const App: React.FC = () => {
         items: h.items // jsonb should map directly if structure matches
       }));
       setPurchaseHistory(mappedHistory);
+
+      // Purchase History Items (Product specific)
+      const { data: historyItemsData, error: historyItemsError } = await supabase
+        .from('purchase_history_items')
+        .select('*')
+        .order('purchase_date', { ascending: false });
+
+      if (historyItemsError) {
+        console.warn('Error fetching purchase_history_items:', historyItemsError);
+      } else {
+        const mappedHistoryItems: ProductPurchaseRecord[] = (historyItemsData || []).map(h => ({
+          id: h.id,
+          productId: h.product_id,
+          purchaseDate: h.purchase_date,
+          quantity: Number(h.quantity),
+          unitPrice: Number(h.unit_price),
+          packagingSize: h.packaging_size ? Number(h.packaging_size) : undefined,
+          createdAt: h.created_at,
+          weightBought: h.weight_bought ? Number(h.weight_bought) : undefined,
+          unitsReceived: h.units_received ? Number(h.units_received) : undefined
+        }));
+        setPurchaseHistoryItems(mappedHistoryItems);
+      }
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -306,7 +331,8 @@ const App: React.FC = () => {
       consumption_type: newProduct.consumptionType,
       image_url: newProduct.imageUrl,
       expiration_date: newProduct.expirationDate || null,
-      average_consumption: newProduct.averageConsumption
+      average_consumption: newProduct.averageConsumption,
+      purchase_unit: newProduct.purchaseUnit || 'unidade'
     };
 
     if (newProduct.id && products.some(p => p.id === newProduct.id)) {
@@ -346,6 +372,59 @@ const App: React.FC = () => {
         }
       }
     }
+  };
+
+  const handleRegisterPurchase = async (productId: string, purchaseData: { quantity: number; unitPrice: number; packagingSize?: number; purchaseDate: string; weightBought?: number; unitsReceived?: number }) => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    // 1. Insert into purchase_history_items
+    const { error: historyError } = await supabase.from('purchase_history_items').insert({
+      product_id: productId,
+      purchase_date: `${purchaseData.purchaseDate}T00:00:00Z`, // basic start of day or ISO string
+      quantity: purchaseData.quantity,
+      unit_price: purchaseData.unitPrice,
+      packaging_size: purchaseData.packagingSize || null,
+      weight_bought: purchaseData.weightBought || null,
+      units_received: purchaseData.unitsReceived || null
+    });
+
+    if (historyError) {
+      console.error('Error saving purchase history item', historyError);
+      alert('Erro ao registrar histórico de compra');
+      return;
+    }
+
+    // 2. Update Products
+    let newQuantity = product.currentQuantity + purchaseData.quantity;
+    let newPriceKg = product.pricePerKg;
+
+    // If it's a kg purchase, calculate new price_per_kg
+    if (product.purchaseUnit === 'kg' && purchaseData.weightBought && purchaseData.weightBought > 0) {
+      newPriceKg = (purchaseData.unitPrice * purchaseData.quantity) / purchaseData.weightBought;
+    } else if (product.measurementUnit === 'kg' && purchaseData.packagingSize && purchaseData.packagingSize > 0) {
+      newPriceKg = purchaseData.unitPrice / purchaseData.packagingSize;
+    } else if (product.measurementUnit === 'g' && purchaseData.packagingSize && purchaseData.packagingSize > 0) {
+      newPriceKg = purchaseData.unitPrice / (purchaseData.packagingSize / 1000);
+    }
+
+    const { error: updateError } = await supabase.from('products').update({
+      current_quantity: newQuantity,
+      price_per_unit: purchaseData.unitPrice,
+      price_per_kg: newPriceKg,
+      status: newQuantity <= product.minQuantity ? Status.WARNING : Status.NORMAL
+    }).eq('id', product.id);
+
+    if (updateError) {
+      console.error('Error updating product stock/price', updateError);
+      alert('Erro ao atualizar produto em estoque');
+      return;
+    }
+
+    fetchData(); // Refresh to get the latest state and clean everything
   };
 
   const handleConfirmPurchase = async (purchasedQuantities: Record<string, number>) => {
@@ -392,11 +471,22 @@ const App: React.FC = () => {
     for (const item of purchaseItems) {
       const product = products.find(p => p.id === item.productId);
       if (product) {
+        const todayStr = new Date().toISOString();
+
         // Create price history entry
         await supabase.from('historical_prices').insert({
           product_id: product.id,
           price: product.pricePerUnit,
-          date: new Date().toISOString().split('T')[0]
+          date: todayStr.split('T')[0]
+        });
+
+        // Create detailed purchase item record for new chronologic history view
+        await supabase.from('purchase_history_items').insert({
+          product_id: product.id,
+          purchase_date: todayStr,
+          quantity: item.quantity,
+          unit_price: product.pricePerUnit,
+          packaging_size: null
         });
 
         // Update quantity
@@ -567,6 +657,7 @@ const App: React.FC = () => {
               setEditingProduct(null);
               handleNavigation('add_product');
             }}
+            onRegisterPurchase={handleRegisterPurchase}
           />
         )}
         {currentView === 'shopping_list' && (
@@ -604,7 +695,11 @@ const App: React.FC = () => {
           />
         )}
         {currentView === 'reports' && (
-          <ReportsPage products={products} purchaseHistory={purchaseHistory} />
+          <ReportsPage
+            products={products}
+            purchaseHistory={purchaseHistory}
+            purchaseHistoryItems={purchaseHistoryItems}
+          />
         )}
       </main>
 

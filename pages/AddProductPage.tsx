@@ -37,12 +37,16 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
     consumptionType: ConsumptionType.WHOLE,
     imageUrl: '',
     expirationDate: '',
-    averageConsumption: 0
+    averageConsumption: 0,
+    purchaseUnit: 'unidade'
   });
 
   useEffect(() => {
     if (product) {
-      setFormData(product);
+      setFormData({
+        ...product,
+        purchaseUnit: product.purchaseUnit || 'unidade'
+      });
     }
   }, [product]);
 
@@ -178,24 +182,45 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ product, onSave, onCanc
                 <select
                   className="w-full h-14 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-5 font-black text-sm transition-all"
                   value={formData.category}
-                  onChange={e => setFormData({ ...formData, category: e.target.value as Category })}
+                  onChange={e => {
+                    const newCat = e.target.value as Category;
+                    const isKgCategory = [Category.HORTIFRUTI, Category.CARNES].includes(newCat);
+                    setFormData({
+                      ...formData,
+                      category: newCat,
+                      purchaseUnit: isKgCategory ? 'kg' : 'unidade'
+                    });
+                  }}
                 >
                   {Object.values(Category).map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Unidade de Venda (Embalagem)</label>
-                <select
-                  className="w-full h-14 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-5 font-black text-sm transition-all"
-                  value={formData.unit}
-                  onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                >
-                  {PURCHASE_UNITS.map(u => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                </select>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Unidade de Venda (Embalagem)</label>
+                  <select
+                    className="w-full h-14 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-5 font-black text-sm transition-all"
+                    value={formData.unit}
+                    onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                  >
+                    {PURCHASE_UNITS.map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Unidade de Compra</label>
+                  <select
+                    className="w-full h-14 rounded-2xl border-slate-200 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-5 font-black text-sm transition-all"
+                    value={formData.purchaseUnit}
+                    onChange={e => setFormData({ ...formData, purchaseUnit: e.target.value as 'unidade' | 'kg' })}
+                  >
+                    <option value="unidade">Unidade (padrão)</option>
+                    <option value="kg">Por Quilo (KG)</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>

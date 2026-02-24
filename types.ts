@@ -46,6 +46,7 @@ export interface Product {
     price: number;
     date: string;
   }[];
+  purchaseUnit?: 'unidade' | 'kg';
 }
 
 
@@ -68,6 +69,18 @@ export interface PurchaseRecord {
   date: string;
   items: PurchaseItem[];
   totalAmount: number;
+}
+
+export interface ProductPurchaseRecord {
+  id: string;
+  productId: string;
+  purchaseDate: string;
+  quantity: number;
+  unitPrice: number;
+  packagingSize?: number;
+  createdAt?: string;
+  weightBought?: number;
+  unitsReceived?: number;
 }
 
 export type ReportPeriod = '7d' | '15d' | 'month' | 'year';

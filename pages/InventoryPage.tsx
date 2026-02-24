@@ -1,19 +1,21 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Product, Category, Status, ConsumptionType } from '../types';
+import PurchaseProductModal from '../components/PurchaseProductModal';
 
 interface InventoryPageProps {
   products: Product[];
   onConsume: (id: string, amount?: number) => void;
   onEdit: (p: Product) => void;
   onAddClick: () => void;
+  onRegisterPurchase: (productId: string, data: { quantity: number; unitPrice: number; packagingSize?: number; purchaseDate: string }) => void;
 }
 
-const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEdit, onAddClick }) => {
+const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEdit, onAddClick, onRegisterPurchase }) => {
   const [filter, setFilter] = useState<string>('Todos');
   const [search, setSearch] = useState<string>('');
   const [consumingId, setConsumingId] = useState<string | null>(null);
   const [fractionAmount, setFractionAmount] = useState<string>('');
+  const [purchasingProduct, setPurchasingProduct] = useState<Product | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -266,7 +268,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
                       <>
                         {isOutOfStock ? (
                           <button
-                            onClick={() => onEdit(p)}
+                            onClick={() => setPurchasingProduct(p)}
                             className="flex-1 py-3 bg-rose-50 dark:bg-rose-900/10 text-rose-500 dark:text-rose-400 font-black rounded-xl flex items-center justify-center gap-2 hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-all uppercase text-[10px] tracking-widest border border-rose-100 dark:border-rose-900/30 active:scale-95"
                           >
                             <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
@@ -283,7 +285,16 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
                         )}
 
                         <button
+                          onClick={() => setPurchasingProduct(p)}
+                          title="Registrar Compra"
+                          className="size-12 flex items-center justify-center border-2 border-slate-100 dark:border-slate-800 rounded-xl text-primary hover:bg-primary/5 hover:border-primary/30 transition-all active:scale-95"
+                        >
+                          <span className="material-symbols-outlined font-bold text-[20px]">add_shopping_cart</span>
+                        </button>
+
+                        <button
                           onClick={() => onEdit(p)}
+                          title="Configurações"
                           className="size-12 flex items-center justify-center border-2 border-slate-100 dark:border-slate-800 rounded-xl text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-95"
                         >
                           <span className="material-symbols-outlined font-bold text-[20px]">settings</span>
@@ -317,6 +328,18 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
         <span className="material-symbols-outlined text-white font-black">add</span>
         <span className="font-black tracking-widest uppercase text-xs pr-2 hidden sm:inline">Adicionar Item</span>
       </button>
+
+      {purchasingProduct && (
+        <PurchaseProductModal
+          product={purchasingProduct}
+          isOpen={!!purchasingProduct}
+          onClose={() => setPurchasingProduct(null)}
+          onConfirm={(data) => {
+            onRegisterPurchase(purchasingProduct.id, data);
+            setPurchasingProduct(null);
+          }}
+        />
+      )}
     </div>
   );
 };

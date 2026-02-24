@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { Product, Category, PurchaseRecord, ReportPeriod } from '../types';
+import { Product, Category, PurchaseRecord, ReportPeriod, ProductPurchaseRecord } from '../types';
 
 interface ReportsPageProps {
   products: Product[];
   purchaseHistory: PurchaseRecord[];
+  purchaseHistoryItems?: ProductPurchaseRecord[];
 }
 
 const PERIOD_OPTIONS: { key: ReportPeriod; label: string }[] = [
@@ -39,7 +40,7 @@ function formatDateTime(dateStr: string): string {
     d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory }) => {
+const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory, purchaseHistoryItems = [] }) => {
   const [period, setPeriod] = useState<ReportPeriod>('month');
 
 
@@ -83,44 +84,92 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory }) 
     return cats.size;
   }, [filteredPurchases]);
 
-  // Price variations - compare oldest vs newest price in period for each product
-  const priceVariations = useMemo(() => {
-    return products
-      .map(p => {
-        const history = p.priceHistory || [];
-        if (history.length < 2) return null;
+  // Price History - Chronological order per product
+  const chronologicalPriceHistory = useMemo(() => {
+    if (!purchaseHistoryItems || purchaseHistoryItems.length === 0) return [];
 
-        // Get entries in the period
-        const entriesInPeriod = history.filter(h => new Date(h.date) >= startDate);
-        const entriesBefore = history.filter(h => new Date(h.date) < startDate);
+    // Filter items in the selected period
+    const itemsInPeriod = purchaseHistoryItems.filter(item => new Date(item.purchaseDate) >= startDate);
 
-        // Need at least one entry in the period to show a change
-        if (entriesInPeriod.length === 0) return null;
+    // Group by product
+    const groupedByProduct: Record<string, any[]> = {};
+    itemsInPeriod.forEach(item => {
+      if (!groupedByProduct[item.productId]) {
+        groupedByProduct[item.productId] = [];
+      }
+      groupedByProduct[item.productId].push(item);
+    });
 
-        // Reference price: latest before the period, or oldest in the period
-        const refPrice = entriesBefore.length > 0
-          ? entriesBefore[entriesBefore.length - 1].price
-          : entriesInPeriod[0].price;
+    const result = [];
 
-        const currentPrice = p.pricePerUnit;
+    // For each product, sort chronologically and calculate variations
+    for (const [productId, history] of Object.entries(groupedByProduct)) {
+      const productInfo = products.find(p => p.id === productId);
+      if (!productInfo) continue;
 
-        if (refPrice <= 0) return null;
+      // Sort oldest to newest to calculate variations correctly
+      history.sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
 
-        const change = ((currentPrice - refPrice) / refPrice) * 100;
+      const formattedHistory = history.map((h, index) => {
+        let changePct = 0;
+        const isKg = productInfo.purchaseUnit === 'kg';
+
+        // To calculate variation, we use total_paid / weight_bought as the price per kg IF it's a kg purchase.
+        // Because unitPrice in the DB for a KG purchase now stores the calculated price per unity, not per KG.
+        // We need the true price/kg to compare properly for Hortifrúti and Carnes.
+        const getComparePrice = (record: any) => {
+          if (productInfo.purchaseUnit === 'kg' && record.weightBought && record.weightBought > 0) {
+            // The total paid was unitPrice (per item) * quantity (items).
+            // So we reconstruct the total price and divide by the weight to get the real price/kg for comparison.
+            return (record.unitPrice * record.quantity) / record.weightBought;
+          }
+          return record.unitPrice;
+        };
+
+        const currentPriceToCompare = getComparePrice(h);
+
+        if (index > 0) {
+          const prevPrice = getComparePrice(history[index - 1]);
+          if (prevPrice > 0) {
+            changePct = ((currentPriceToCompare - prevPrice) / prevPrice) * 100;
+          }
+        } else {
+          // For the first item in the period, try to find an older record to compare
+          const olderRecords = purchaseHistoryItems.filter(
+            old => old.productId === productId && new Date(old.purchaseDate) < startDate
+          ).sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime()); // newest first
+
+          if (olderRecords.length > 0) {
+            const prevPrice = getComparePrice(olderRecords[0]);
+            if (prevPrice > 0) {
+              changePct = ((currentPriceToCompare - prevPrice) / prevPrice) * 100;
+            }
+          }
+        }
 
         return {
-          id: p.id,
-          name: p.name,
-          category: p.category,
-          oldPrice: refPrice,
-          newPrice: currentPrice,
-          change,
-          unit: p.unit
+          ...h,
+          changePct,
+          priceForDisplay: currentPriceToCompare,
+          isKg
         };
-      })
-      .filter(Boolean)
-      .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change)) as any[];
-  }, [products, startDate]);
+      });
+
+      result.push({
+        productInfo,
+        history: formattedHistory.reverse() // Reverse again to show newest first in the UI
+      });
+    }
+
+    // Sort products by the most recent purchase date globally
+    result.sort((a, b) => {
+      const latestA = new Date(a.history[0].purchaseDate).getTime();
+      const latestB = new Date(b.history[0].purchaseDate).getTime();
+      return latestB - latestA;
+    });
+
+    return result;
+  }, [purchaseHistoryItems, products, startDate]);
 
   // Stock Autonomy Logic
   const stockAutonomy = useMemo(() => {
@@ -331,70 +380,96 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory }) 
       </div>
 
       {/* Price Variations Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden mb-8">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Variação de Preços</h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1">Comparação de preços dentro do período selecionado</p>
+          <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Histórico de Preços</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1">Evolução cronológica de preços por produto</p>
         </div>
 
-        {priceVariations.length === 0 ? (
+        {chronologicalPriceHistory.length === 0 ? (
           <div className="py-16 text-center">
             <span className="material-symbols-outlined text-4xl text-slate-200 dark:text-slate-700 block mb-3">monitoring</span>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sem dados de variação</p>
-            <p className="text-[10px] text-slate-400 mt-1">As variações aparecerão após mais compras com mudanças de preço.</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhum histórico no período</p>
+            <p className="text-[10px] text-slate-400 mt-1">Registre entradas de produtos para acompanhar as variações.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[600px]">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Produto</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preço Anterior</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preço Atual</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Variação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {priceVariations.map((item: any) => {
-                  const isUp = item.change > 0;
-                  const isDown = item.change < 0;
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`size-8 rounded-lg flex items-center justify-center ${isUp ? 'bg-rose-500/10 text-rose-500' : isDown ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-100 text-slate-400'
-                            }`}>
-                            <span className="material-symbols-outlined text-sm">
-                              {isUp ? 'arrow_upward' : isDown ? 'arrow_downward' : 'horizontal_rule'}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{item.name}</p>
-                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-black uppercase tracking-widest">{item.category}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-mono">
-                        R$ {item.oldPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 text-xs font-black text-slate-900 dark:text-white font-mono">
-                        R$ {item.newPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${isUp
-                          ? 'bg-rose-500/10 text-rose-500'
-                          : isDown
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : 'bg-slate-100 text-slate-500'
-                          }`}>
-                          {isUp ? '+' : ''}{item.change.toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {chronologicalPriceHistory.map((group) => (
+              <div key={group.productInfo.id} className="p-6 flex flex-col lg:flex-row gap-6 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                <div className="w-full lg:w-1/3 flex items-start gap-4">
+                  {group.productInfo.imageUrl ? (
+                    <img src={group.productInfo.imageUrl} alt={group.productInfo.name} className="size-16 rounded-xl object-cover shadow-sm" />
+                  ) : (
+                    <div className="size-16 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-slate-400 text-2xl">package_2</span>
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-tight text-sm mb-1">{group.productInfo.name}</h4>
+                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded uppercase tracking-widest">{group.productInfo.category}</span>
+                  </div>
+                </div>
+
+                <div className="w-full lg:w-2/3">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Data</th>
+                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Quantidade</th>
+                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preço Pago</th>
+                          <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Variação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                        {group.history.map((record: any) => {
+                          const isUp = record.changePct > 0;
+                          const isDown = record.changePct < 0;
+                          const d = new Date(record.purchaseDate);
+                          const formattedDate = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+                          return (
+                            <tr key={record.id} className="group/row">
+                              <td className="py-2.5 text-xs font-bold text-slate-500 font-mono">{formattedDate}</td>
+                              <td className="py-2.5 text-xs text-slate-600 dark:text-slate-400 font-medium whitespace-nowrap">
+                                {record.quantity} {group.productInfo.unit}
+                                {record.isKg && record.weightBought > 0 && (
+                                  <span className="ml-1 text-[10px] text-slate-400">({record.weightBought}kg)</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 text-xs font-black text-slate-900 dark:text-white font-mono">
+                                <div className="flex flex-col">
+                                  <span>R$ {record.priceForDisplay.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {record.isKg ? '/kg' : ''}</span>
+                                  {record.isKg && (
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                      Total: R$ {(record.unitPrice * record.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 text-right w-24">
+                                {record.changePct === 0 ? (
+                                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded inline-flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[12px]">horizontal_rule</span>
+                                    0%
+                                  </span>
+                                ) : (
+                                  <span className={`text-[10px] font-black px-2 py-1 rounded inline-flex items-center gap-0.5 ${isUp ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500'
+                                    }`}>
+                                    <span className="material-symbols-outlined text-[12px]">{isUp ? 'trending_up' : 'trending_down'}</span>
+                                    {isUp ? '+' : ''}{record.changePct.toFixed(1)}%
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

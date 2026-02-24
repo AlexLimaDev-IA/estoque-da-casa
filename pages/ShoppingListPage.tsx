@@ -313,34 +313,57 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {filteredAvailable.map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => {
-                        onManualAdd(product.id);
-                        setShowModal(false);
-                      }}
-                      className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group text-left"
-                    >
-                      {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} className="size-11 rounded-xl object-cover bg-slate-100 dark:bg-slate-800" />
-                      ) : (
-                        <div className="size-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600 shrink-0">
-                          <span className="material-symbols-outlined text-xl">inventory_2</span>
+                  {filteredAvailable.map(product => {
+                    const isOutOfStock = product.currentQuantity <= 0;
+                    const isLowStock = product.currentQuantity > 0 && product.currentQuantity < product.minQuantity;
+
+                    let statusText = 'Em estoque';
+                    let statusColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+                    if (isOutOfStock) {
+                      statusText = 'Sem estoque';
+                      statusColor = 'text-rose-500 bg-rose-500/10 border-rose-500/20';
+                    } else if (isLowStock) {
+                      statusText = 'Acabando';
+                      statusColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+                    }
+
+                    return (
+                      <button
+                        key={product.id}
+                        onClick={() => {
+                          onManualAdd(product.id);
+                          setShowModal(false);
+                        }}
+                        className="w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group text-left"
+                      >
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={product.name} className="size-10 md:size-11 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0" />
+                        ) : (
+                          <div className="size-10 md:size-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600 shrink-0">
+                            <span className="material-symbols-outlined text-xl">inventory_2</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">{product.name}</p>
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest border shrink-0 ${statusColor}`}>
+                              {statusText}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-black uppercase tracking-widest shrink-0">{product.category}</span>
+                            <span className="text-[10px] text-slate-400 font-mono font-bold shrink-0 hidden md:inline">R$ {product.pricePerUnit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            <span className="text-[10px] text-slate-500 font-mono font-bold sm:ml-auto shrink-0 bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded-md">
+                              <span className="text-slate-900 dark:text-white">{product.currentQuantity}</span> <span className="text-[8px] uppercase tracking-widest">{product.unit}</span> em estoque
+                            </span>
+                          </div>
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">{product.name}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-black uppercase tracking-widest">{product.category}</span>
-                          <span className="text-[10px] text-slate-400 font-mono font-bold">R$ {product.pricePerUnit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <div className="size-8 md:size-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all shrink-0 ml-1">
+                          <span className="material-symbols-outlined text-lg font-black">add</span>
                         </div>
-                      </div>
-                      <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary opacity-0 group-hover:opacity-100 transition-all shrink-0">
-                        <span className="material-symbols-outlined text-lg font-black">add</span>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

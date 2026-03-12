@@ -43,6 +43,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
         if (parsed.mode && ['browse', 'list', 'confirm'].includes(parsed.mode)) setMode(parsed.mode);
         if (parsed.budget !== undefined) setBudget(parsed.budget);
         if (parsed.quantities) setQuantities(parsed.quantities);
+        if (parsed.realPrices) setRealPrices(parsed.realPrices);
         if (parsed.browseSelected && Object.keys(parsed.browseSelected).length > 0) {
           setBrowseSelected(parsed.browseSelected);
           setIsInitialized(true);
@@ -79,9 +80,10 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
       mode,
       budget,
       quantities,
-      browseSelected
+      browseSelected,
+      realPrices
     }));
-  }, [mode, budget, quantities, browseSelected, isInitialized]);
+  }, [mode, budget, quantities, browseSelected, realPrices, isInitialized]);
 
   // Categories for filter
   const categories = useMemo(() => {
@@ -184,6 +186,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
     });
     setBrowseSelected(initial);
     setQuantities({});
+    setRealPrices({});
     setMode('browse');
     setBudget(150);
   };
@@ -765,13 +768,17 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
 
             <button
               onClick={() => {
-                // Pre-populate realPrices with current pricePerUnit values
+                // Pre-populate realPrices with current pricePerUnit values or keep existing ones
                 const initialPrices: Record<string, { unitPrice: number | string; pricePerKg?: number | string }> = {};
                 listItems.forEach(item => {
-                  initialPrices[item.id] = {
-                    unitPrice: item.pricePerUnit,
-                    pricePerKg: item.purchaseUnit === 'kg' && item.pricePerKg ? item.pricePerKg : undefined
-                  };
+                  if (realPrices[item.id] && realPrices[item.id].unitPrice !== undefined && realPrices[item.id].unitPrice !== '') {
+                    initialPrices[item.id] = realPrices[item.id];
+                  } else {
+                    initialPrices[item.id] = {
+                      unitPrice: item.pricePerUnit,
+                      pricePerKg: item.purchaseUnit === 'kg' && item.pricePerKg ? item.pricePerKg : undefined
+                    };
+                  }
                 });
                 setRealPrices(initialPrices);
                 setConfirmDate(new Date().toISOString().split('T')[0]);

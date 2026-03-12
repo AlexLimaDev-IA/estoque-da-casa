@@ -91,7 +91,7 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
                     <div className="flex items-start justify-between">
                         <div>
                             <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Nova Compra</h3>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Registrar entrada no estoque</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Adicionar produto na sua Lista de Compras</p>
                         </div>
                         <button
                             onClick={onClose}
@@ -274,7 +274,7 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
                             <div>
                                 <p className="text-[9px] font-black uppercase text-primary tracking-widest">Atenção</p>
                                 <p className="text-[9px] font-bold text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-                                    Isso irá adicionar a Qtd no Saldo Atual e sobrescrever o Preço Base Vigente no cadastro.
+                                    Este item e seus preços definidos aqui serão enviados para a sua Lista de Compras para que você possa revisar e concluir a compra final.
                                 </p>
                             </div>
                         </div>
@@ -292,7 +292,7 @@ const PurchaseProductModal: React.FC<PurchaseProductModalProps> = ({ product, is
                             type="submit"
                             className="flex-[2] h-10 rounded-xl bg-primary text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-primary/30 hover:brightness-110 active:scale-95 transition-all"
                         >
-                            Registrar Compra
+                            Adicionar à Lista
                         </button>
                     </div>
                 </form>

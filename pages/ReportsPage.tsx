@@ -30,12 +30,15 @@ function getStartDate(period: ReportPeriod): Date {
 }
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  // Extract just the YYYY-MM-DD part and parse as local to avoid UTC offset issues
+  const localDateStr = dateStr.includes('T') ? dateStr.split('T')[0] + 'T00:00:00' : dateStr + 'T00:00:00';
+  const d = new Date(localDateStr);
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr);
+  const localDateStr = dateStr.includes('T') ? dateStr.split('T')[0] + 'T00:00:00' : dateStr + 'T00:00:00';
+  const d = new Date(localDateStr);
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' +
     d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
@@ -441,7 +444,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ products, purchaseHistory, pu
                         {group.history.map((record: any) => {
                           const isUp = record.changePct > 0;
                           const isDown = record.changePct < 0;
-                          const d = new Date(record.purchaseDate);
+                          const localDateStr = record.purchaseDate.includes('T') ? record.purchaseDate.split('T')[0] + 'T00:00:00' : record.purchaseDate + 'T00:00:00';
+                          const d = new Date(localDateStr);
                           const formattedDate = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
                           return (

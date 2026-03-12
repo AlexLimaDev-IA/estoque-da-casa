@@ -72,12 +72,8 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
   });
 
   const handleStartConsume = (p: Product) => {
-    if (p.consumptionType === ConsumptionType.WHOLE) {
-      onConsume(p.id);
-    } else {
-      setConsumingId(p.id);
-      setFractionAmount('');
-    }
+    setConsumingId(p.id);
+    setFractionAmount('');
   };
 
   const handleConfirmFraction = (id: string) => {
@@ -245,7 +241,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ products, onConsume, onEd
                         <input
                           type="number"
                           autoFocus
-                          placeholder={`Retirar ${isFractional ? 'un.' : p.measurementUnit}`}
+                          placeholder={`Retirar qtd. ${isFractional ? ' / peso' : ''}`}
                           className="flex-1 h-12 rounded-xl border-primary bg-primary/5 text-center font-bold text-sm focus:ring-primary focus:border-primary px-2"
                           value={fractionAmount}
                           onChange={(e) => setFractionAmount(e.target.value)}

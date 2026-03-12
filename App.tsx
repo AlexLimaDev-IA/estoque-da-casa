@@ -263,7 +263,7 @@ const App: React.FC = () => {
     let newContentPerUnit = product.contentPerUnit;
 
     if (product.consumptionType === ConsumptionType.WHOLE) {
-      newQuantity = Math.max(0, product.currentQuantity - 1);
+      newQuantity = Math.max(0, product.currentQuantity - amount);
     } else {
       const initialQuantity = product.currentQuantity;
       if (initialQuantity <= 0) return;

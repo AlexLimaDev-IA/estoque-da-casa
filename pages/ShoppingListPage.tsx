@@ -17,6 +17,9 @@ interface ShoppingListPageProps {
 
 const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyAddedIds, onRemoveFromList, onManualAdd, onQuantityChange, onConfirmPurchase }) => {
 
+  const STORAGE_KEY = 'estoquedacasa_shopping_list';
+
+  const [isInitialized, setIsInitialized] = useState(false);
   const [mode, setMode] = useState<'browse' | 'list' | 'confirm'>('browse');
   const [budget, setBudget] = useState<number | string>(150);
   const [quantities, setQuantities] = useState<Record<string, number | string>>({});
@@ -31,8 +34,26 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  // Auto-select low-stock products on mount
+  // Initialize state from localStorage or default
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.mode && ['browse', 'list', 'confirm'].includes(parsed.mode)) setMode(parsed.mode);
+        if (parsed.budget !== undefined) setBudget(parsed.budget);
+        if (parsed.quantities) setQuantities(parsed.quantities);
+        if (parsed.browseSelected && Object.keys(parsed.browseSelected).length > 0) {
+          setBrowseSelected(parsed.browseSelected);
+          setIsInitialized(true);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading shopping list state', e);
+    }
+
+    // No saved state or empty list, init from products
     const initial: Record<string, number> = {};
     products.forEach(p => {
       if (p.currentQuantity < p.minQuantity) {
@@ -42,14 +63,25 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
         initial[p.id] = needed;
       }
     });
-    // Also include any manually added IDs from the parent
     manuallyAddedIds.forEach(id => {
       if (!(id in initial)) {
         initial[id] = 1;
       }
     });
     setBrowseSelected(initial);
+    setIsInitialized(true);
   }, []); // Run once on mount
+
+  // Save state whenever it changes
+  useEffect(() => {
+    if (!isInitialized) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      mode,
+      budget,
+      quantities,
+      browseSelected
+    }));
+  }, [mode, budget, quantities, browseSelected, isInitialized]);
 
   // Categories for filter
   const categories = useMemo(() => {
@@ -131,6 +163,31 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
     setBrowseSelected(prev => ({ ...prev, [id]: Math.max(1, qty) }));
   };
 
+  const handleCreateNewList = () => {
+    if (!confirm('Tem certeza que deseja apagar a lista atual e recomeçar do zero?')) return;
+
+    localStorage.removeItem(STORAGE_KEY);
+
+    const initial: Record<string, number> = {};
+    products.forEach(p => {
+      if (p.currentQuantity < p.minQuantity) {
+        const needed = p.consumptionType === 'WHOLE'
+          ? Math.max(1, Math.ceil(p.minQuantity - p.currentQuantity))
+          : 1;
+        initial[p.id] = needed;
+      }
+    });
+    manuallyAddedIds.forEach(id => {
+      if (!(id in initial)) {
+        initial[id] = 1;
+      }
+    });
+    setBrowseSelected(initial);
+    setQuantities({});
+    setMode('browse');
+    setBudget(150);
+  };
+
   const handleGenerateList = () => {
     // Sync selections with parent: add any new manual IDs
     Object.keys(browseSelected).forEach(id => {
@@ -141,7 +198,7 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
     // Initialize quantities from browse selections
     const newQtys: Record<string, number | string> = {};
     Object.entries(browseSelected).forEach(([id, qty]) => {
-      newQtys[id] = qty;
+      newQtys[id] = qty as number;
     });
     setQuantities(newQtys);
     setMode('list');
@@ -477,12 +534,15 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                   allQuantities[item.id] = Number(val) || 0;
                 });
                 const finalPrices: Record<string, { unitPrice: number; pricePerKg?: number }> = {};
-                Object.entries(realPrices).forEach(([id, p]) => {
+                Object.entries(realPrices).forEach(([id, p]: [string, any]) => {
                   finalPrices[id] = {
                     unitPrice: Number(p.unitPrice) || 0,
                     pricePerKg: p.pricePerKg !== undefined && p.pricePerKg !== '' ? Number(p.pricePerKg) : undefined
                   };
                 });
+                // Limpa o estado salvo da lista
+                localStorage.removeItem(STORAGE_KEY);
+
                 onConfirmPurchase(allQuantities, confirmDate, finalPrices);
               }}
               className="flex-[2] h-12 rounded-xl bg-[#11d483] text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -506,13 +566,22 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight uppercase tracking-tight">Lista de Compras</h1>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">{listItems.length} itens selecionados para compra</p>
         </div>
-        <button
-          onClick={() => setMode('browse')}
-          className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
-        >
-          <span className="material-symbols-outlined text-lg">arrow_back</span>
-          Editar Seleção
-        </button>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <button
+            onClick={handleCreateNewList}
+            className="flex items-center justify-center gap-2 bg-rose-50 dark:bg-rose-500/10 text-rose-500 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-rose-100 dark:hover:bg-rose-500/20"
+          >
+            <span className="material-symbols-outlined text-lg">refresh</span>
+            Nova Lista
+          </button>
+          <button
+            onClick={() => setMode('browse')}
+            className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
+          >
+            <span className="material-symbols-outlined text-lg">edit</span>
+            Editar Seleção
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -574,6 +643,10 @@ const ShoppingListPage: React.FC<ShoppingListPageProps> = ({ products, manuallyA
                               setQuantities(prev => ({
                                 ...prev,
                                 [item.id]: newQty
+                              }));
+                              setBrowseSelected(prev => ({
+                                ...prev,
+                                [item.id]: val === '' ? 1 : Math.max(1, Number(val))
                               }));
                             }}
                           />
